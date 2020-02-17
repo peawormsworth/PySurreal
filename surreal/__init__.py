@@ -4,16 +4,9 @@ from math import log
 from fractions import Fraction
 from random import choice
 
-VERBOSE = 0
-
 class Surreal ():
 
     def __init__ (self,lesser=[],greater=[]):
-        #if type(lesser)  is not type([]):
-            #lesser  = [lessor]
-        #if type(greater) is not type([]):
-            #greater = [greater]
-            
         self.lesser  = lesser
         self.greater = greater
 
@@ -42,7 +35,7 @@ class Surreal ():
     def __eq__  (a,b) : return a <= b and b <= a
     def __lt__  (a,b) : return a <= b and not b <= a
     def __sub__ (a,b) : return a + (-b)
-    def __div__ (a,b) : return a * ~b
+    def __truediv__ (a,b) : return a * ~b
 
     def is_zero(self)    : return self == self.zero()
     def is_one(self)     : return self == self.one()
@@ -51,18 +44,18 @@ class Surreal ():
     def __invert__ (x):
         zero = x.zero()
         one  = x.one()
-        if   x == zero : raise  ZeroDivisionError
-        elif x <= zero : return -(one/(-x))
+        if   x == zero : raise ZeroDivisionError
+        elif x <= zero : print("LESSSSSSSS THAN XERO");return -(~(-x))
         elif x == one  : return x
         else:
             xl = [ n for n in x.lesser if n >= zero ]
             xg = x.greater
             return Surreal(
                 [ zero                                               ]+
-                [ one + (xxg - x) * ~xxl for xxg in xg for xxl in xl ]+
-                [ one + (xxl - x) * ~xxg for xxl in xl for xxg in xg ],
-                [ one + (xxl - x) * ~xxl for xxl in xl for xxl in xl ]+
-                [ one + (xxg - x) * ~xxg for xxg in xg for xxg in xg ]
+                [ (one + (xxg - x) * ~xxl) * ~xxg for xxl in xl for xxg in xg ]+
+                [ (one + (xxl - x) * ~xxg) * ~xxl for xxl in xl for xxg in xg ],
+                [ (one + (xxl - x) * ~xxl) * ~xxl for xxl in xl ]+
+                [ (one + (xxg - x) * ~xxg) * ~xxg for xxg in xg ]
             )
 
     def __mul__ (x,y):
@@ -178,7 +171,7 @@ class SurrealTests(unittest.TestCase):
         
 
     # 7 days = 30s
-    def Xtest_comparative(self):
+    def test_comparative(self):
         s = creation(days=7)
         print('\ncompare {}×{} numbers in 6 ways for {} comparisons.'.format(len(s),len(s),6*len(s)**2))
         for i in s:
@@ -193,7 +186,7 @@ class SurrealTests(unittest.TestCase):
 
 
     # 11 days = 30s
-    def Xtest_negation(self):
+    def test_negation(self):
         "Negation Tests"
         s = creation(days=11)
         print('\ncompare {} negated numbers with their negated label.'.format(len(s)))
@@ -204,7 +197,7 @@ class SurrealTests(unittest.TestCase):
 
 
     # 6 days = 30s
-    def Xtest_addition(self):
+    def test_addition(self):
         s = creation(days=6)
         print('\nSum {}×{} numbers with each other where the solution is also a label.'.format(len(s),len(s)))
         for i in s:
@@ -216,7 +209,7 @@ class SurrealTests(unittest.TestCase):
 
 
     # 6 days = 30s
-    def Xtest_subtraction(self):
+    def test_subtraction(self):
         s = creation(days=6)
         print('\nSubtract {}×{} numbers with each other where the solution is also a label.'.format(len(s),len(s)))
         for i in s:
@@ -228,7 +221,7 @@ class SurrealTests(unittest.TestCase):
 
 
     # 4 days = 30s
-    def Xtest_multiplication(self):
+    def test_multiplication(self):
         s = creation(days=3)
         print('\nMultiply {} labels from each other where the solution is also a label.'.format(len(s)))
         for i in s:
