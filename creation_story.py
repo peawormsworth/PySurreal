@@ -23,21 +23,25 @@ class TestCreation (unittest.TestCase):
 
     def test_creation(self):
 
-        days = 7
+        if speech: print('\nUsing a squence of symbols\n{}'.format(' '.join(symbols)))
+        if speech: print('...as labels for number as I discover them')
+       
+
+        days = 6
 
         day = None
         if speech: print('\n=== Morning {}'.format(day))
 
-        if preach: print('\nIn the beginning was infinite void')
+        if preach: print('\nThe beginning was infinite void')
         s = {}
         if speech: print('\n\n=== On day "{}" the universe was {}'.format(day,('populated' if s else 'empty')))
 
         # Day Zero: creation
 
         day  = 0
-        zero = Surreal(None,None)
+        zero = Surreal()
         if speech: print('\n=== Morning {}'.format(day))
-        if preach: print('\nNothing born of the void separated the void')
+        if preach: print('\nBorn of void, nothing separated it')
         
         birth = canal()
         name  = next(birth)
@@ -67,17 +71,13 @@ class TestCreation (unittest.TestCase):
                         if speech: print('\n{} is bigger than {}'.format(smaller,bigger))
                         if speech: print('  so this form not a valid Surreal number')
                     else:
-                        lesser  = smaller
-                        greater = bigger
-                        if smaller is not None:
-                            lesser = s[smaller]
-                        if bigger is not None:
-                            greater = s[bigger]
+                        lesser  = [] if smaller is None else [s[smaller]]
+                        greater = [] if bigger  is None else [s[bigger ]]
 
                         form = Surreal(lesser,greater)
                         if speech: print('  shape: ', form)
 
-                        equivelence = form.find_equivelence(s)
+                        equivelence = form.equivelence_in(s)
                         if equivelence is None:
                             name = next(birth)
                             if speech: print('\nHappy birthday "{}"'.format(form))
@@ -109,14 +109,13 @@ class TestCreation (unittest.TestCase):
                             if speech: print(' and looks like : ', eq_form)
                             if speech: print('I already have a number like this called "{}"'.format(equivelence))
             names = list(sorted(float(i) for i in list(s.keys())))
-            #names = list(sorted(list(s.keys()), key=lambda symbol: sorted_symbols[symbol]))
             if speech: print('count of loops is:',cnt)
             day = day + 1
 
 
         print('\n\n=== On day "{}", the universe contains:\n\n  {}'.format(day,', '.join(str(i) for i in names)))
         print('\n\nAfter day {}, the cardinality of the surreal universe is {}\n'.format(day, len(s)))
-        if preach: print('...and it was {}\n'.format('GOOD' if len(s) == cardinality else 'BAD'))
+        if preach: print('...and it was {}\n'.format('good' if len(s) == cardinality else 'BAD'))
 
 
 if __name__ == '__main__':
