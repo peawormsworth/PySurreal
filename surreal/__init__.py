@@ -1,8 +1,8 @@
 import unittest
 import random
-from math import log
 from fractions import Fraction
-from random import choice
+from random    import choice
+from math      import log
 
 class Surreal ():
 
@@ -45,7 +45,7 @@ class Surreal ():
         zero = x.zero()
         one  = x.one()
         if   x == zero : raise ZeroDivisionError
-        elif x <= zero : print("LESSSSSSSS THAN XERO");return -(~(-x))
+        elif x <= zero : return -(~(-x))
         elif x == one  : return x
         else:
             xl = [ n for n in x.lesser if n >= zero ]
@@ -115,6 +115,7 @@ def canal (r=[Fraction(0)]):
     while 1:
         yield r[0] - 1
         rn = [r[0]]
+
         for n in r[1:]:
             mid = (rn[-1]+n)/2
             yield mid
@@ -130,6 +131,7 @@ def creation (days=7):
     labels = []
     numbers = {}
     numbers = {0 : Surreal() }
+
     for generations in range(1,days):
         ll = sorted(numbers.keys())
         for n in range(len(ll)+1):
@@ -154,13 +156,16 @@ class SurrealTests(unittest.TestCase):
         birth = canal()
         numbers = []
         order   = []
+
         for i in range (len(s)):
             label = next(birth)
             order.append(str(s[label]))
             numbers.append(str(label))
+
         for i in range(len(order)):
             for j in range(i+1,len(order)):
                 order[j] = order[j].replace(str(order[i]),numbers[i])
+
         for number in range(len(numbers)):
             #if self.verbose: print('check {} {} has a common form {}'.format(numbers[number],s[numbers[number]],self.common_format[numbers[number]]))
             #print(s)
@@ -174,6 +179,7 @@ class SurrealTests(unittest.TestCase):
     def test_comparative(self):
         s = creation(days=7)
         print('\ncompare {}×{} numbers in 6 ways for {} comparisons.'.format(len(s),len(s),6*len(s)**2))
+
         for i in s:
             for j in s:
                 if self.verbose: print('check < <= == => > relations between {} and {}'.format(i,j))
@@ -190,6 +196,7 @@ class SurrealTests(unittest.TestCase):
         "Negation Tests"
         s = creation(days=11)
         print('\ncompare {} negated numbers with their negated label.'.format(len(s)))
+
         for i in s:
             if self.verbose: print('check -({:8}) = {:8}'.format(str(i),str(-i)))
             assert -s[i] == s[-i], '  calc: {}'.format(-s[i] == s[-i])
@@ -200,6 +207,7 @@ class SurrealTests(unittest.TestCase):
     def test_addition(self):
         s = creation(days=6)
         print('\nSum {}×{} numbers with each other where the solution is also a label.'.format(len(s),len(s)))
+
         for i in s:
             for j in s:
                 if i+j in s:
@@ -212,6 +220,7 @@ class SurrealTests(unittest.TestCase):
     def test_subtraction(self):
         s = creation(days=6)
         print('\nSubtract {}×{} numbers with each other where the solution is also a label.'.format(len(s),len(s)))
+
         for i in s:
             for j in s:
                 if i-j in s:
@@ -224,6 +233,7 @@ class SurrealTests(unittest.TestCase):
     def test_multiplication(self):
         s = creation(days=3)
         print('\nMultiply {} labels from each other where the solution is also a label.'.format(len(s)))
+
         for i in s:
             for j in s:
                 if i*j in s:
@@ -365,6 +375,5 @@ class SurrealTests(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    # TODO: show command to run tests with/out verbosity
     unittest.main(verbosity=2)
 
