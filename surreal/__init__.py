@@ -4,6 +4,51 @@ from fractions import Fraction
 from random    import choice
 from math      import log
 
+def canal (r=[Fraction(0)]):
+    yield r[0]
+    while 1:
+        yield r[0] - 1
+        rn = [r[0]]
+        for n in r[1:]:
+            mid = (rn[-1]+n)/2
+            yield mid
+            rn.append(mid)
+            rn.append(n)
+        yield rn[-1]+1
+        r = [rn[0]-1] + rn + [rn[-1]+1]
+
+def creation (days=7):
+    birth = canal()
+    next(birth)
+    numbers = {0 : Surreal() }
+
+    for generations in range(1,days):
+        ll = sorted(numbers.keys())
+        for n in range(len(ll)+1):
+            v = next(birth)
+            lesser, greater = [],[]
+            if n > 0:
+                lesser = [numbers[ll[n-1]]]
+            if n < len(ll):
+                greater = [numbers[ll[n]]]
+            numbers[v] = Surreal(lesser,greater)
+    return numbers
+
+
+def common_names (s):
+        birth = canal()
+        labels, number = [], []
+        mylabel = ''
+        for i in range(len(s)):
+            label = next(birth)
+            labels.append(str(label))
+            number.append(str(s[label]))
+        for i in range(len(labels)):
+            for j in range(i+1,len(labels)):
+                number[j] = number[j].replace(str(number[i]),labels[i])
+        return dict(zip(labels,number))
+
+
 class Surreal ():
 
     def __init__ (self,lesser=[],greater=[]):
@@ -11,8 +56,11 @@ class Surreal ():
         self.greater = greater
 
     def __add__ (x,y):
-        if x.is_zero() : return y
-        if y.is_zero() : return x
+        if type(y) != type(x):
+            y = x.cast(y)
+        zero = x.zero()
+        if x == zero : return y
+        if y == zero : return x
         return Surreal(
             [ xl+y for xl in x.lesser  ] + [ x+yl for yl in y.lesser  ],
             [ xg+y for xg in x.greater ] + [ x+yg for yg in y.greater ]
@@ -25,25 +73,24 @@ class Surreal ():
         )
 
     def __le__ (a,b):
+        if type(b) != type(a):
+            b = a.cast(b)
         return True if a is b else all(
             [ (not b <= lesser ) for lesser  in a.lesser  ] +
             [ (not greater <= a) for greater in b.greater ]
         )
             
-    def __ge__  (a,b) : return not a <= b or b <= a
-    def __gt__  (a,b) : return not a <= b
-    def __eq__  (a,b) : return a <= b and b <= a
-    def __lt__  (a,b) : return a <= b and not b <= a
-    def __sub__ (a,b) : return a + (-b)
+    def __ge__  (a,b) : return     b <= a
+    def __lt__  (a,b) : return not b <= a
+    def __eq__  (a,b) : return     b <= a and a <= b
+    def __gt__  (a,b) : return            not a <= b
+
+    def __sub__     (a,b) : return a + (-b)
     def __truediv__ (a,b) : return a * ~b
 
-    def is_zero(self)    : return self == self.zero()
-    def is_one(self)     : return self == self.one()
-    def is_neg_one(self) : return self == self.neg_one()
-
     def __invert__ (x):
-        zero = x.zero()
-        one  = x.one()
+        zero = self.zero()
+        one  = self.one()
         if   x == zero : raise ZeroDivisionError
         elif x <= zero : return -(~(-x))
         elif x == one  : return x
@@ -58,17 +105,37 @@ class Surreal ():
                 [ (one + (xxg - x) * ~xxg) * ~xxg for xxg in xg ]
             )
 
+    def __rmul__ (x,y):
+        if type(y) != type(x):
+            y = x.cast(y)
+        else:
+            return None
+        return y * x
+
+
+    def cast (self,n):
+        if n == 1:
+            return self.one()
+        elif n == 0:
+            return self.zero()
+        elif n == -1:
+            return self.neg_one()
+
+
     def __mul__ (x,y):
-        if x.is_zero()    : return  x
-        if y.is_zero()    : return  y
-        if x.is_one()     : return  y
-        if y.is_one()     : return  x
-        if x.is_neg_one() : return -y
-        if y.is_neg_one() : return -x
-        xl = x.lesser
-        yl = y.lesser
-        xg = x.greater
-        yg = y.greater
+        if type(y) != type(x):
+            y = x.cast(y)
+        zero    = x.zero()
+        one     = x.one()
+        neg_one = x.neg_one()
+        if x == zero    : return  x
+        if y == zero    : return  y
+        if x == one     : return  y
+        if y == one     : return  x
+        if x == neg_one : return -y
+        if y == neg_one : return -x
+        xl, xg = x.lesser, x.greater
+        yl, yg = y.lesser, y.greater
         return Surreal(
             [ xxl*y + x*yyl - xxl*yyl for xxl in xl for yyl in yl ]+
             [ xxg*y + x*yyg - xxg*yyg for xxg in xg for yyg in yg ],
@@ -104,75 +171,30 @@ class Surreal ():
         #return "{}({})".format(type(self).__name__, self.__str__())
 
     def __str__ (self):
+        return self.full_name()
+
+    def full_name (self):
         lesser  = ','.join(str(l) for l in self.lesser )
         greater = ','.join(str(l) for l in self.greater)
         return '{}{}|{}{}'.format('{',lesser,greater,'}')
 
 
-
-def canal (r=[Fraction(0)]):
-    yield r[0]
-    while 1:
-        yield r[0] - 1
-        rn = [r[0]]
-
-        for n in r[1:]:
-            mid = (rn[-1]+n)/2
-            yield mid
-            rn.append(mid)
-            rn.append(n)
-        yield rn[-1]+1
-        r = [rn[0]-1] + rn + [rn[-1]+1]
-
-
-def creation (days=7):
-    birth = canal()
-    next(birth)
-    labels = []
-    numbers = {}
-    numbers = {0 : Surreal() }
-
-    for generations in range(1,days):
-        ll = sorted(numbers.keys())
-        for n in range(len(ll)+1):
-            v = next(birth)
-            lesser, greater = [],[]
-            if n > 0:
-                lesser = [numbers[ll[n-1]]]
-            if n < len(ll):
-                greater = [numbers[ll[n]]]
-
-            numbers[v] = Surreal(lesser,greater)
-            labels.append(v)
-    return numbers
-
-
 class SurrealTests(unittest.TestCase):
     verbose = 1
-
     
     def test_common_name(self):
         s = creation(days=7)
-        birth = canal()
-        numbers = []
-        order   = []
+        cn = common_names(s)
 
-        for i in range (len(s)):
-            label = next(birth)
-            order.append(str(s[label]))
-            numbers.append(str(label))
-
-        for i in range(len(order)):
-            for j in range(i+1,len(order)):
-                order[j] = order[j].replace(str(order[i]),numbers[i])
-
-        for number in range(len(numbers)):
-            #if self.verbose: print('check {} {} has a common form {}'.format(numbers[number],s[numbers[number]],self.common_format[numbers[number]]))
-            #print(s)
-            if self.verbose: print('check {} has a common form {}'.format(numbers[number],order[number]))
-            self.assertEqual(order[number], self.common_format[numbers[number]], 
-                msg='Error {}: thought {}, but got {}'.format(numbers[number], self.common_format[numbers[number]], order[number])
-            )
+        for number in s:
+            number = str(number)
+            try:
+                if self.verbose: print('check {} has a common form {}'.format(number,self.common_format[number]))
+                self.assertEqual(cn[number], self.common_format[number], 
+                    msg='Error {}: thought {}, but got {}'.format(number, self.common_format[number], cn[number])
+                )
+            except KeyError as e:
+                print("could not find {} in our list for some reason".format(number))
         
 
     # 7 days = 30s
@@ -376,4 +398,3 @@ class SurrealTests(unittest.TestCase):
 if __name__ == '__main__':
 
     unittest.main(verbosity=2)
-
