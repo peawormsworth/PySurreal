@@ -1,7 +1,9 @@
 from fractions import Fraction
 
-# precision and recursion depth limits.
+# precision limits the accuracy (size) of numbers generated 
 precision     = 2**-20
+
+# limit the recursion depth 
 max_recursion = 30
 
 # useful surreal representations used throughout
@@ -11,8 +13,14 @@ one  = (nil,nan)
 neg  = (nan,nil)
 
 
-
+# note that as variation of the Van Der Corpus sequence, there may be a more
+# efficient or consice routine for this.
 def canal (r=[Fraction(0,1)]):
+    """yeilds fractions according to their birthday ordering.
+
+    0,-1,1,-2,-1/2,1/2,2,-3... 
+    """
+
     yield r[0]
     while 1:
         yield r[0] - 1
@@ -26,6 +34,8 @@ def canal (r=[Fraction(0,1)]):
 
 
 def cleave (nucleus=[nil]):
+    "yeilds linked lists according to their birthday ordering"
+
     l = nucleus
     yield l[-1]
     while 1:
@@ -39,19 +49,33 @@ def cleave (nucleus=[nil]):
 
 
 def creation (days=7):
-    birth  = canal()
-    sprout = cleave()
+    """
+    returns a dictionary of surreal labels and linked tuple representations.
+
+    Parameters
+    ----------
+    days : limits the list to numbers born with this range
+    """
+
+    birth    = canal()
+    sprout   = cleave()
     universe = {}
     for i in range(2**days-1):
         universe[next(birth)] = Surreal(next(sprout))
     return universe
 
 
-# given a number, generate the surreal number
-# up to the precision number as a link of lists
 def construct (num,precision=precision):
-    scale = 1
+    """
+    given a number, generate the surreal number up to a precision 
+
+    Parameters
+    ----------
+    precision : a number less than 1. ie: 1% precision would be 0.01
+    """
+
     form  = nil
+    scale = 1
     lone  = None
     while precision <= abs(num):
         if abs(num) <= 1: 
@@ -69,8 +93,9 @@ def construct (num,precision=precision):
     return form
 
 
-# given a surreal, return its numeric value
 def distill (s):
+    "return the numeric value of this surreal representation as a float"
+
     form  = nil
     scale = 1
     lone  = None
@@ -92,6 +117,7 @@ def distill (s):
 
 
 def least (s):
+    "returns the surreal number with lowest numeric value from a list"
     if not s:
         return nan
     l = s[0]
@@ -101,51 +127,75 @@ def least (s):
 
 
 def greatest (s):
+    "returns the surreal number with greatest numeric value from a list"
+
     if not s:
         return nan
-    l = s[0]
+    g = s[0]
     for n in s[1:]: 
-        if le(l,n): l = n
-    return l
+        if le(g,n): g = n
+    return g
 
 
 def reduce (x):
+    "returns the reduced equilent form of any valid surreal representation"
+
     y = nil
     while not eq(y,x): 
         y = (y[0],y) if le(x,y) else (y,y[1])
     return y
 
 
-def limit_reduce (x,p=max_recursion):
-    y = nil
-    b = 0
-    while not eq(y,x) and b < p: 
-        y = (y[0],y) if le(x,y) else (y,y[1])
-        b += 1
-    return y
+def consolidate (x):
+    "reduce a surreal with multiply left and or right surreals to the ideal form with only one value linked to each side"
+    return (greatest(x[0]), least(x[1]))
+
+def negate(x): 
+    "return the negation of the given sureal representation"
+    return (negate(x[1]), negate(x[0])) if x else x
+
+def absolute (x): 
+    "return the absolute value of a surreal as a surreal"
+    return negate(x) if le(x,nil) else x
+
+def sub (x,y):
+    "subtract two surreals in the order given"
+    return add(x,negate(y))
+
+def eq (x,y):
+    "compare two surreal numbers and return True if they are equivelent forms"
+    return le(x,y) and le(y,x)
+
+def ne (x,y):
+    "not equal comparison of two surreals"
+    return not le(x,y) and not le(y,x)
+
+def gt (x,y):
+    "greater than comparison of two surreals"
+    return not le(x,y)
+
+def lt (x,y):
+    "less than comparison of two surreals"
+    return not le(y,x)
+
+def ge (x,y):
+    "greater or equal comparison of two surreals"
+    return le(y,x)
 
 
-def consolidate (x)   : return (greatest(x[0]), least(x[1]))
-def negate      (x)   : return (negate(x[1]), negate(x[0])) if x else x
-def absolute    (x)   : return negate(x) if le(x,nil) else x
-def sub         (x,y) : return add(x,negate(y))
-def eq          (x,y) : return     le(x,y) and     le(y,x)
-def ne          (x,y) : return not le(x,y) and not le(y,x)
-def gt          (x,y) : return not le(x,y)
-def lt          (x,y) : return                 not le(y,x)
-def ge          (x,y) : return                     le(y,x)
-
-
-# return True if a and b are less than c apart
-def within (a,b,c): return lt(absolute(sub(a,b)),c)
+def within (a,b,c):
+    "return True if a and b are less than c apart"
+    return lt(absolute(sub(a,b)),c)
 
 def le (x,y,n=0): 
-    mr = max_recursion
-    return n > mr or not (x[0] and le(y,x[0],n+1) or y[1] and le(y[1],x,n+1))
+    "less or equal comparison of two surreals"
     return n > max_recursion or not (x[0] and le(y,x[0],n+1) or y[1] and le(y[1],x,n+1) )
 
+    # unlimed form...
+    return not (x[0] and le(y,x[0]) or y[1] and le(y[1]) )
 
 def add (x,y):
+    """add two surreal numbers"""
     if x == nil : return y
     if y == nil : return x
     if x == nil : return y
@@ -163,6 +213,7 @@ def add (x,y):
 
 
 def mult (x,y):
+    """multiply two surreal numbers"""
     if x == nil : return nil
     if y == nil : return nil
     if x == one : return y
@@ -200,6 +251,34 @@ def mult (x,y):
 
 
 class Surreal ():
+    """
+    Represent Surreal numbers as linked tuples.
+
+    Each tuple contains two objects. Representing the left and right side of 
+    the Surreal number. The number zero is identified as the list containing 
+    the empty set on both the right and left side. From here the numbers are 
+    built up from zero according to the right left pattern associated with 
+    Surreal number location identification.
+
+    This module provides procedural and object oriented interfaces.
+
+    from surreal import construct, Surreal
+    procedure_surreal = construct(5/2)
+    object_surreal = Surreal(5/2)
+
+    # then this is true:
+    procedure_surreal = object_surreal.form()
+
+    Object comparison and manipulation:
+
+    neg_two = Surreal(-2)
+    quarter = Surreal(1/4)
+    result = neg_two * quarter
+
+    # result will now be -1.0
+
+    Consult the test file for further examples.
+    """
 
     def __init__ (self, form):
         if type(form) is tuple:
