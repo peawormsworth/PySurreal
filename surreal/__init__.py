@@ -1,400 +1,341 @@
-import unittest
-import random
 from fractions import Fraction
-from random    import choice
-from math      import log
 
-def canal (r=[Fraction(0)]):
+# precision limits the accuracy (size) of numbers generated 
+precision     = 2**-10
+
+# limit the recursion depth 
+max_recursion = 10
+
+# useful surreal representations used throughout
+nan  = ()
+nil  = (nan,nan)
+one  = (nil,nan)
+neg  = (nan,nil)
+
+
+# note that as variation of the Van Der Corpus sequence, there may be a more
+# efficient or consice routine for this.
+def canal (r=[Fraction(0,1)]):
+    """yeilds fractions according to their birthday ordering.
+
+    0,-1,1,-2,-1/2,1/2,2,-3... 
+    """
+
     yield r[0]
     while 1:
         yield r[0] - 1
         rn = [r[0]]
         for n in r[1:]:
-            mid = (rn[-1]+n)/2
-            yield mid
-            rn.append(mid)
-            rn.append(n)
+            m = (rn[-1]+n)/2
+            yield m
+            rn.extend((m,n))
         yield rn[-1]+1
         r = [rn[0]-1] + rn + [rn[-1]+1]
 
+
+def cleave (nucleus=[nil]):
+    "yeilds linked lists according to their birthday ordering"
+
+    l = nucleus
+    yield l[-1]
+    while 1:
+        cnt = 0
+        nl  = []
+        for s in l:
+            for n in [(s[0],s),(s,s[1])]:
+                yield n
+                nl = nl + [n]
+        l = nl
+
+
 def creation (days=7):
-    birth = canal()
-    next(birth)
-    numbers = {0 : Surreal() }
+    """
+    returns a dictionary of surreal labels and linked tuple representations.
 
-    for generations in range(1,days):
-        ll = sorted(numbers.keys())
-        for n in range(len(ll)+1):
-            v = next(birth)
-            lesser, greater = [],[]
-            if n > 0:
-                lesser = [numbers[ll[n-1]]]
-            if n < len(ll):
-                greater = [numbers[ll[n]]]
-            numbers[v] = Surreal(lesser,greater)
-    return numbers
+    Parameters
+    ----------
+    days : limits the list to numbers born with this range
+    """
+
+    birth    = canal()
+    sprout   = cleave()
+    universe = {}
+    for i in range(2**days-1):
+        universe[next(birth)] = Surreal(next(sprout))
+    return universe
 
 
-def common_names (s):
-        birth = canal()
-        labels, number = [], []
-        mylabel = ''
-        for i in range(len(s)):
-            label = next(birth)
-            labels.append(str(label))
-            number.append(str(s[label]))
-        for i in range(len(labels)):
-            for j in range(i+1,len(labels)):
-                number[j] = number[j].replace(str(number[i]),labels[i])
-        return dict(zip(labels,number))
+def construct (num,precision=precision):
+    """
+    given a number, generate the surreal number up to a precision 
+
+    Parameters
+    ----------
+    precision : a number less than 1. ie: 1% precision would be 0.01
+    """
+
+    form  = nil
+    scale = 1
+    lone  = None
+    while precision <= abs(num):
+        if abs(num) <= 1: 
+            lone = True
+        if num <= 0:
+            form = (form[0],form)
+            num += scale
+            lone = 0 <= num or lone
+        else:
+            form = (form,form[1])
+            num -= scale
+            lone = num <= 0 or lone
+        if lone:
+            scale /= 2 
+    return form
+
+
+def distill (s):
+    "return the numeric value of this surreal representation as a float"
+
+    form  = nil
+    scale = 1
+    lone  = None
+    num   = Fraction(0/1)
+    while not eq(s,form):
+        if not lone and within(s,form,one):
+            lone = True
+        if le(form,s):
+            form = (form,form[1])
+            num += scale
+            lone = lone or le(s,form)
+        else:
+            form = (form[0],form)
+            num -= scale
+            lone = lone or le(form,s)
+        if lone:
+            scale /= 2 
+    return num
+
+
+def least (s):
+    "returns the surreal number with lowest numeric value from a list"
+    if not s:
+        return nan
+    l = s[0]
+    for n in s[1:]: 
+        if le(n,l): l = n
+    return l
+
+
+def greatest (s):
+    "returns the surreal number with greatest numeric value from a list"
+
+    if not s:
+        return nan
+    g = s[0]
+    for n in s[1:]: 
+        if le(g,n): g = n
+    return g
+
+
+def reduce (x):
+    "returns the reduced equilent form of any valid surreal representation"
+
+    y = nil
+    while not eq(y,x): 
+        y = (y[0],y) if le(x,y) else (y,y[1])
+    return y
+
+
+def consolidate (x):
+    "reduce a surreal with multipl left and or right surreals to the ideal form with only one value linked to each side"
+    return (greatest(x[0]), least(x[1]))
+
+def negate(x): 
+    "return the negation of the given sureal representation"
+    return (negate(x[1]), negate(x[0])) if x else x
+
+def absolute (x): 
+    "return the absolute value of a surreal as a surreal"
+    return negate(x) if le(x,nil) else x
+
+def sub (x,y):
+    "subtract two surreals in the order given"
+    return add(x,negate(y))
+
+def eq (x,y):
+    "compare two surreal numbers and return True if they are equivelent forms"
+    return le(x,y) and le(y,x)
+
+def ne (x,y):
+    "not equal comparison of two surreals"
+    return not le(x,y) and not le(y,x)
+
+def gt (x,y):
+    "greater than comparison of two surreals"
+    return not le(x,y)
+
+def lt (x,y):
+    "less than comparison of two surreals"
+    return not le(y,x)
+
+def ge (x,y):
+    "greater or equal comparison of two surreals"
+    return le(y,x)
+
+
+def within (a,b,c):
+    "return True if a and b are less than c apart"
+    return lt(absolute(sub(a,b)),c)
+
+def le (x,y,n=0): 
+    "less or equal comparison of two surreals"
+    return n > max_recursion or not (x[0] and le(y,x[0],n+1) or y[1] and le(y[1],x,n+1) )
+
+    # unlimed form...
+    return not (x[0] and le(y,x[0]) or y[1] and le(y[1]) )
+
+def add (x,y):
+    """add two surreal numbers"""
+    if x == nil : return y
+    if y == nil : return x
+    if x == nil : return y
+    if y == nil : return x
+    left, right = (), ()
+    if len(x) > 0 and x[0] : left  = add(x[0],y)
+    if len(x) > 1 and x[1] : right = add(x[1],y)
+    if len(y) > 0 and y[0] : 
+        under = add(x,y[0]) 
+        if not left or  le(left, under): left = under
+    if len(y) > 1 and y[1] :
+        over  = add(x,y[1])
+        if not right or le(over, right): right = over
+    return (left, right)
+
+
+def mult (x,y):
+    """multiply two surreal numbers"""
+    if x == nil : return nil
+    if y == nil : return nil
+    if x == one : return y
+    if y == one : return x
+    if x == neg : return negate(y)
+    if y == neg : return negate(x)
+
+    xl,xr,yl,yr = (),(),(),()
+
+    if x and x[0]: xl = x[0]
+    if x and x[1]: xr = x[1]
+    if y and y[0]: yl = y[0]
+    if y and y[1]: yr = y[1]
+
+    if xl: xly = mult(xl,y)
+    if yl: xyl = mult(x,yl)
+    if xr: xry = mult(xr,y)
+    if yr: xyr = mult(x,yr)
+
+    left,right = (),()
+
+    if xl and yl:
+        left  = sub(add(xly,xyl),mult(xl,yl))
+    if xr and yr:
+        other = sub(add(xry,xyr),mult(xr,yr))
+        if not left or le(left,other): left = other
+
+    if xl and yr:
+        right = sub(add(xly,xyr),mult(xl,yr))
+    if xr and yl:
+        other = sub(add(xyl,xry),mult(xr,yl))
+        if not right or le(other,right): right = other
+
+    return reduce((left, right))
 
 
 class Surreal ():
+    """
+    Represent Surreal numbers as linked tuples.
 
-    def __init__ (self,lesser=[],greater=[]):
-        self.lesser  = lesser
-        self.greater = greater
+    Each tuple contains two objects. Representing the left and right side of 
+    the Surreal number. The number zero is identified as the list containing 
+    the empty set on both the right and left side. From here the numbers are 
+    built up from zero according to the right left pattern associated with 
+    Surreal number location identification.
 
-    def __add__ (x,y):
-        if type(y) != type(x):
-            y = x.cast(y)
-        zero = x.zero()
-        if x == zero : return y
-        if y == zero : return x
-        return Surreal(
-            [ xl+y for xl in x.lesser  ] + [ x+yl for yl in y.lesser  ],
-            [ xg+y for xg in x.greater ] + [ x+yg for yg in y.greater ]
-        )
+    This module provides procedural and object oriented interfaces.
 
-    def __neg__ (self):
-        return Surreal(
-            [ -greater for greater in self.greater ],
-            [ -lesser  for lesser  in self.lesser  ]
-        )
+    from surreal import construct, Surreal
+    procedure_surreal = construct(5/2)
+    object_surreal = Surreal(5/2)
 
-    def __le__ (a,b):
-        if type(b) != type(a):
-            b = a.cast(b)
-        return True if a is b else all(
-            [ (not b <= lesser ) for lesser  in a.lesser  ] +
-            [ (not greater <= a) for greater in b.greater ]
-        )
-            
-    def __ge__  (a,b) : return     b <= a
-    def __lt__  (a,b) : return not b <= a
-    def __eq__  (a,b) : return     b <= a and a <= b
-    def __gt__  (a,b) : return            not a <= b
+    # then this is true:
+    procedure_surreal = object_surreal.form()
 
-    def __sub__     (a,b) : return a + (-b)
-    def __truediv__ (a,b) : return a * ~b
+    Object comparison and manipulation:
 
-    def __invert__ (x):
-        zero = self.zero()
-        one  = self.one()
-        if   x == zero : raise ZeroDivisionError
-        elif x <= zero : return -(~(-x))
-        elif x == one  : return x
-        else:
-            xl = [ n for n in x.lesser if n >= zero ]
-            xg = x.greater
-            return Surreal(
-                [ zero                                               ]+
-                [ (one + (xxg - x) * ~xxl) * ~xxg for xxl in xl for xxg in xg ]+
-                [ (one + (xxl - x) * ~xxg) * ~xxl for xxl in xl for xxg in xg ],
-                [ (one + (xxl - x) * ~xxl) * ~xxl for xxl in xl ]+
-                [ (one + (xxg - x) * ~xxg) * ~xxg for xxg in xg ]
-            )
+    neg_two = Surreal(-2)
+    quarter = Surreal(1/4)
+    result = neg_two * quarter
 
-    def __rmul__ (x,y):
-        if type(y) != type(x):
-            y = x.cast(y)
-        else:
-            return None
-        return y * x
+    # result will now be -1.0
+
+    Consult the test file for further examples.
+    """
+
+    def __init__ (self, form):
+        if type(form) is tuple:
+            assert len(form) == 2, 'tuple input must have 2 elements'
+            self.left, self.right = form[:]
+        elif type(form) in [int, float, Fraction]:
+            self.left, self.right = (construct(form))[:]
+
+    def __len__          (x) : return len(x.form())
+    def __le__      (self,o) : return le(self.form(), o.form())
+    def __ge__      (self,o) : return     o <= self
+    def __lt__      (self,o) : return not o <= self
+    def __eq__      (self,o) : return     o <= self and self <= o
+    def __gt__      (self,o) : return               not self <= o
+    def __truediv__ (self,o) : return self * ~o
+    def __sub__     (self,o) : return self + (-o)
+    def __abs__     (self)   : return -self if le(self.form(), nil) else self
+    def   form      (self)   : return (self.left,self.right)
+    def __neg__     (self)   : return type(self)(negate(self.form()))
+    def __float__   (self)   : return float(self.fraction())
+    def __int__     (self)   : return int(float(self))
+    def fraction    (self)   : return distill(self.form())
 
 
-    def cast (self,n):
-        if n == 1:
-            return self.one()
-        elif n == 0:
-            return self.zero()
-        elif n == -1:
-            return self.neg_one()
+    def __mul__ (self,o):
+        return type(self)(mult(
+            self.form(),
+            o.form() if type(o) is type(self) else o ))
 
 
-    def __mul__ (x,y):
-        if type(y) != type(x):
-            y = x.cast(y)
-        zero    = x.zero()
-        one     = x.one()
-        neg_one = x.neg_one()
-        if x == zero    : return  x
-        if y == zero    : return  y
-        if x == one     : return  y
-        if y == one     : return  x
-        if x == neg_one : return -y
-        if y == neg_one : return -x
-        xl, xg = x.lesser, x.greater
-        yl, yg = y.lesser, y.greater
-        return Surreal(
-            [ xxl*y + x*yyl - xxl*yyl for xxl in xl for yyl in yl ]+
-            [ xxg*y + x*yyg - xxg*yyg for xxg in xg for yyg in yg ],
-            [ xxl*y + x*yyg - xxl*yyg for xxl in xl for yyg in yg ]+
-            [ x*yyl + xxg*y - xxg*yyl for yyl in yl for xxg in xg ]
-        )
+    def __add__ (self,o):
+        return type(self)(reduce(add(
+            self.form(),
+            o.form() if type(o) is type(self) else o )))
 
-    def one (self):
-        if not hasattr(self,'_one'):
-            self._one = type(self)(lesser=[self.zero()])
-        return self._one
 
-    def zero (self): 
-        if not hasattr(self,'_zero'):
-            self._zero = type(self)()
-        return self._zero
+    def __getitem__ (self,i):
+        if i == 0: return self.left
+        if i == 1: return self.right
+        else: raise TypeError(
+            msg="'{}' only has index 0 (left) and 1 (right)".format(
+                type(self).__name__ ) )
 
-    def neg_one (self): 
-        if not hasattr(self,'_neg_one'):
-            self._neg_one = type(self)(greater=[self.zero()])
-        return self._neg_one
 
-    def equivelence_in (self,surreals={}):
-        for label in surreals:
-            if self == surreals[label]: 
-                return label
-        return None
+    def __repr__ (self):
+        return '{}(({!r},{!r}))'.format(
+            type(self).__name__   , 
+            self.left, self.right )
 
-    def name_in (self,s):
-        return self.equivelence_in(s)
-
-    #def __repr__ (self):
-        #return "{}({})".format(type(self).__name__, self.__str__())
 
     def __str__ (self):
-        return self.full_name()
-
-    def full_name (self):
-        lesser  = ','.join(str(l) for l in self.lesser )
-        greater = ','.join(str(l) for l in self.greater)
-        return '{}{}|{}{}'.format('{',lesser,greater,'}')
+        return '(({}),({}))'.format(
+            ','.join(str(l) for l in self.left ) ,
+            ','.join(str(l) for l in self.right) )
 
 
-class SurrealTests(unittest.TestCase):
-    verbose = 1
-    
-    def test_common_name(self):
-        s = creation(days=7)
-        cn = common_names(s)
-
-        for number in s:
-            number = str(number)
-            try:
-                if self.verbose: print('check {} has a common form {}'.format(number,self.common_format[number]))
-                self.assertEqual(cn[number], self.common_format[number], 
-                    msg='Error {}: thought {}, but got {}'.format(number, self.common_format[number], cn[number])
-                )
-            except KeyError as e:
-                print("could not find {} in our list for some reason".format(number))
-        
-
-    # 7 days = 30s
-    def test_comparative(self):
-        s = creation(days=7)
-        print('\ncompare {}×{} numbers in 6 ways for {} comparisons.'.format(len(s),len(s),6*len(s)**2))
-
-        for i in s:
-            for j in s:
-                if self.verbose: print('check < <= == => > relations between {} and {}'.format(i,j))
-                self.assertIs( i< j, s[i]< s[j], msg='Error: {} <  {} ≠ {}'.format(i,j,s[i]< s[j]) )
-                self.assertIs( i<=j, s[i]<=s[j], msg='Error: {} <= {} ≠ {}'.format(i,j,s[i]<=s[j]) )
-                self.assertIs( i==j, s[i]==s[j], msg='Error: {} == {} ≠ {}'.format(i,j,s[i]==s[j]) )
-                self.assertIs( i>=j, s[i]>=s[j], msg='Error: {} >= {} ≠ {}'.format(i,j,s[i]>=s[j]) )
-                self.assertIs( i> j, s[i]> s[j], msg='Error: {} >  {} ≠ {}'.format(i,j,s[i]> s[j]) )
-        print('\ndone.\n\ncomparison success: these numbers operate according to their given labels.')
+    def __invert__ (self):
+        return type(self)(reduce(invert(self.form())))
 
 
-    # 11 days = 30s
-    def test_negation(self):
-        "Negation Tests"
-        s = creation(days=11)
-        print('\ncompare {} negated numbers with their negated label.'.format(len(s)))
-
-        for i in s:
-            if self.verbose: print('check -({:8}) = {:8}'.format(str(i),str(-i)))
-            assert -s[i] == s[-i], '  calc: {}'.format(-s[i] == s[-i])
-        print('\ndone.\n\nnegation success: these numbers operate according to their given labels.')
-
-
-    # 6 days = 30s
-    def test_addition(self):
-        s = creation(days=6)
-        print('\nSum {}×{} numbers with each other where the solution is also a label.'.format(len(s),len(s)))
-
-        for i in s:
-            for j in s:
-                if i+j in s:
-                    if self.verbose: print('check {:>6} + {:>6} = {:>6}'.format(str(i),str(j),str(i+j)))
-                    self.assertEqual(s[i+j], s[i]+s[j], msg='incorrect calculation: {:>6} + {:>6} = {:>6}'.format(str([i]),str(s[j]),str(s[i]+s[j])))
-        print('\ndone.\n\naddition success: these numbers operate according to their given labels.')
-
-
-    # 6 days = 30s
-    def test_subtraction(self):
-        s = creation(days=6)
-        print('\nSubtract {}×{} numbers with each other where the solution is also a label.'.format(len(s),len(s)))
-
-        for i in s:
-            for j in s:
-                if i-j in s:
-                    if self.verbose: print('check {:>6} - {:>6} = {:>6}'.format(str(i),str(j),str(i-j)))
-                    assert s[i-j] == s[i]-s[j], 'incorrect calculation: {:>6} - {:>6} = {:>6}'.format(str(s[i]),str(s[j]),str(s[i]-s[j]))
-        print('\ndone.\n\nsubtraction success: these numbers operate according to their given labels.')
-
-
-    # 4 days = 30s
-    def test_multiplication(self):
-        s = creation(days=3)
-        print('\nMultiply {} labels from each other where the solution is also a label.'.format(len(s)))
-
-        for i in s:
-            for j in s:
-                if i*j in s:
-                    if self.verbose: print('multiply {:>6} *{:>6} ={:>6}'.format(str(i),str(j),str(i*j)))
-                    assert s[i*j] == s[i]*s[j], 'incorrect calculation: {} * {} = {}'.format(s[i],s[j],s[i]*s[j])
-        print('\ndone.\n\nmultiplication success: these surreal numbers operate according to their given labels.')
-
-
-    common_format = {
-         '0' : '{|}'          ,
-        '-1' : '{|0}'         ,
-         '1' : '{0|}'         ,
-        '-2' : '{|-1}'        ,
-      '-1/2' : '{-1|0}'       ,
-       '1/2' : '{0|1}'        ,
-         '2' : '{1|}'         ,
-        '-3' : '{|-2}'        ,
-      '-3/2' : '{-2|-1}'      ,
-      '-3/4' : '{-1|-1/2}'    ,
-      '-1/4' : '{-1/2|0}'     ,
-       '1/4' : '{0|1/2}'      ,
-       '3/4' : '{1/2|1}'      ,
-       '3/2' : '{1|2}'        ,
-         '3' : '{2|}'         ,
-        '-4' : '{|-3}'        ,
-      '-5/2' : '{-3|-2}'      ,
-      '-7/4' : '{-2|-3/2}'    ,
-      '-5/4' : '{-3/2|-1}'    ,
-      '-7/8' : '{-1|-3/4}'    ,
-      '-5/8' : '{-3/4|-1/2}'  ,
-      '-3/8' : '{-1/2|-1/4}'  ,
-      '-1/8' : '{-1/4|0}'     ,
-       '1/8' : '{0|1/4}'      ,
-       '3/8' : '{1/4|1/2}'    ,
-       '5/8' : '{1/2|3/4}'    ,
-       '7/8' : '{3/4|1}'      ,
-       '5/4' : '{1|3/2}'      ,
-       '7/4' : '{3/2|2}'      ,
-       '5/2' : '{2|3}'        ,
-         '4' : '{3|}'         ,
-        '-5' : '{|-4}'        ,
-      '-7/2' : '{-4|-3}'      ,
-     '-11/4' : '{-3|-5/2}'    ,
-      '-9/4' : '{-5/2|-2}'    ,
-     '-15/8' : '{-2|-7/4}'    ,
-     '-13/8' : '{-7/4|-3/2}'  ,
-     '-11/8' : '{-3/2|-5/4}'  ,
-      '-9/8' : '{-5/4|-1}'    ,
-    '-15/16' : '{-1|-7/8}'    ,
-    '-13/16' : '{-7/8|-3/4}'  ,
-    '-11/16' : '{-3/4|-5/8}'  ,
-     '-9/16' : '{-5/8|-1/2}'  ,
-     '-7/16' : '{-1/2|-3/8}'  ,
-     '-5/16' : '{-3/8|-1/4}'  ,
-     '-3/16' : '{-1/4|-1/8}'  ,
-     '-1/16' : '{-1/8|0}'     ,
-      '1/16' : '{0|1/8}'      ,
-      '3/16' : '{1/8|1/4}'    ,
-      '5/16' : '{1/4|3/8}'    ,
-      '7/16' : '{3/8|1/2}'    ,
-      '9/16' : '{1/2|5/8}'    ,
-     '11/16' : '{5/8|3/4}'    ,
-     '13/16' : '{3/4|7/8}'    ,
-     '15/16' : '{7/8|1}'      ,
-       '9/8' : '{1|5/4}'      ,
-      '11/8' : '{5/4|3/2}'    ,
-      '13/8' : '{3/2|7/4}'    ,
-      '15/8' : '{7/4|2}'      ,
-       '9/4' : '{2|5/2}'      ,
-      '11/4' : '{5/2|3}'      ,
-       '7/2' : '{3|4}'        ,
-         '5' : '{4|}'         ,
-        '-6' : '{|-5}'        ,
-      '-9/2' : '{-5|-4}'      ,
-     '-15/4' : '{-4|-7/2}'    ,
-     '-13/4' : '{-7/2|-3}'    ,
-     '-23/8' : '{-3|-11/4}'   ,
-     '-21/8' : '{-11/4|-5/2}' ,
-     '-19/8' : '{-5/2|-9/4}'  ,
-     '-17/8' : '{-9/4|-2}'    ,
-    '-31/16' : '{-2|-15/8}'   ,
-    '-29/16' : '{-15/8|-7/4}' ,
-    '-27/16' : '{-7/4|-13/8}' ,
-    '-25/16' : '{-13/8|-3/2}' ,
-    '-23/16' : '{-3/2|-11/8}' ,
-    '-21/16' : '{-11/8|-5/4}' ,
-    '-19/16' : '{-5/4|-9/8}'  ,
-    '-17/16' : '{-9/8|-1}'    ,
-    '-31/32' : '{-1|-15/16}'  ,
-    '-29/32' : '{-15/16|-7/8}',
-    '-27/32' : '{-7/8|-13/16}',
-    '-25/32' : '{-13/16|-3/4}',
-    '-23/32' : '{-3/4|-11/16}',
-    '-21/32' : '{-11/16|-5/8}',
-    '-19/32' : '{-5/8|-9/16}' ,
-    '-17/32' : '{-9/16|-1/2}' ,
-    '-15/32' : '{-1/2|-7/16}' ,
-    '-13/32' : '{-7/16|-3/8}' ,
-    '-11/32' : '{-3/8|-5/16}' ,
-     '-9/32' : '{-5/16|-1/4}' ,
-     '-7/32' : '{-1/4|-3/16}' ,
-     '-5/32' : '{-3/16|-1/8}' ,
-     '-3/32' : '{-1/8|-1/16}' ,
-     '-1/32' : '{-1/16|0}'    ,
-      '1/32' : '{0|1/16}'     ,
-      '3/32' : '{1/16|1/8}'   ,
-      '5/32' : '{1/8|3/16}'   ,
-      '7/32' : '{3/16|1/4}'   ,
-      '9/32' : '{1/4|5/16}'   ,
-     '11/32' : '{5/16|3/8}'   ,
-     '13/32' : '{3/8|7/16}'   ,
-     '15/32' : '{7/16|1/2}'   ,
-     '17/32' : '{1/2|9/16}'   ,
-     '19/32' : '{9/16|5/8}'   ,
-     '21/32' : '{5/8|11/16}'  ,
-     '23/32' : '{11/16|3/4}'  ,
-     '25/32' : '{3/4|13/16}'  ,
-     '27/32' : '{13/16|7/8}'  ,
-     '29/32' : '{7/8|15/16}'  ,
-     '31/32' : '{15/16|1}'    ,
-     '17/16' : '{1|9/8}'      ,
-     '19/16' : '{9/8|5/4}'    ,
-     '21/16' : '{5/4|11/8}'   ,
-     '23/16' : '{11/8|3/2}'   ,
-     '25/16' : '{3/2|13/8}'   ,
-     '27/16' : '{13/8|7/4}'   ,
-     '29/16' : '{7/4|15/8}'   ,
-     '31/16' : '{15/8|2}'     ,
-      '17/8' : '{2|9/4}'      ,
-      '19/8' : '{9/4|5/2}'    ,
-      '21/8' : '{5/2|11/4}'   ,
-      '23/8' : '{11/4|3}'     ,
-      '13/4' : '{3|7/2}'      ,
-      '15/4' : '{7/2|4}'      ,
-       '9/2' : '{4|5}'        ,
-         '6' : '{5|}'
-}
-
-
-if __name__ == '__main__':
-
-    unittest.main(verbosity=2)
